@@ -262,6 +262,22 @@ DimPlot(TregUMAP, reduction = "umap", pt.size = 0.6, label = T)
 TregUMAPident <- SetIdent(TregUMAP, value = "orig.ident")
 DimPlot(TregUMAPident, reduction = "umap", pt.size = 0.6, cols = c("grey", "green", "blue"))
 
+#Treg UMAP by cluster, res = 0.4
+
+TregUMAPcluster.4 <- FindNeighbors(object = Tregcluster, reduction = 'pca', dims = 1:30, k.param = 30, force.recalc = T)
+TregUMAPcluster.4 <- FindClusters(object = TregUMAPcluster.4, verbose = TRUE, n.start = 100, resolution = 0.4, force.recalc= T)
+TregUMAPcluster.4 <- RunUMAP(TregUMAPcluster.4, reduction.use = "pca", dims = 1:30, seed.use = 34)
+DimPlot(TregUMAPcluster.4, reduction = "umap", pt.size = 0.1, label = T)
+
+# Number of total cells per cluster
+table(Idents(TregUMAPcluster.4))
+
+# of cells from each Treg ident total
+table(TregUMAPcluster.4@meta.data$orig.ident)
+
+# of cells from each ident per cluster
+table(Idents(TregUMAPcluster.4), TregUMAPcluster.4$orig.ident)
+
 #Violin plots
 
 VlnPlot(Treg2, features = c("Gzmb"), group.by = "orig.ident", 
@@ -275,7 +291,7 @@ wrap_plots(plots = plots, ncol = 1)
 
 ##--Find all markers
 
-#find all markers, Treg ident
+#find all markers, Treg, by ident
 
 All.markers_Treg_ident <- FindAllMarkers(object = Treg2, 
                                          only.pos = F,
@@ -284,6 +300,17 @@ All.markers_Treg_ident <- FindAllMarkers(object = Treg2,
                                          return.thresh = 0.01, # Only return markers that have a p-value < 0.01
                                          test.use = 'MAST',
                                          latent.vars = 'nCount_RNA') # nUMI as proxy for CDR
+
+#Find all markers, Treg, by cluster
+All.markers_Treg_clusters <- FindAllMarkers(object = TregUMAPcluster.4, 
+                                            only.pos = F,
+                                            min.pct = 0.25, # defines minimum percent of cells expressing a given gene
+                                            logfc.threshold = 0.5, # log-FC
+                                            return.thresh = 0.01, # Only return markers that have a p-value < 0.01
+                                            test.use = 'MAST',
+                                            latent.vars = 'nCount_RNA') # nUMI as proxy for CDR
+
+write.csv(All.markers_Treg_clusters, file = "All_markersTreg_clusters_res0.4_9Mar22.csv")
 
 
 ##--Heatmaps
@@ -301,4 +328,15 @@ TregHeatmapident20 <- DoHeatmap(object = Treg2,
                               features = top20Allident$gene)
 
 TregHeatmapident20
+
+#Treg heat map by cluster, top 20
+#top20cluster
+top20Allcluster <- All.markers_Treg_clusters %>% 
+  group_by(cluster) %>% 
+  top_n(20, avg_log2FC)
+
+TregHeatmapcluster <- DoHeatmap(object = TregUMAPcluster.4, 
+                                features = top20Allcluster$gene)
+
+
 
